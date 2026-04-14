@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>送给你的小宇宙生日礼物</title>
+  <meta name="description" content="4月16日生日快乐，我把想说的话都放进星河里。">
+  <meta property="og:title" content="送给你的生日银河">
+  <meta property="og:description" content="416朵四叶草 + 324朵樱花 + 我们的照片，都是写给你的喜欢。">
+  <meta property="og:image" content="og-cover.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    html,body{margin:0;height:100%;background:#000;overflow:hidden}
+    #photo-bg{position:fixed;inset:-3%;z-index:0;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,180,210,.34), rgba(0,0,0,0) 50%),
+        radial-gradient(circle at 80% 80%, rgba(140,190,255,.26), rgba(0,0,0,0) 50%),
+        linear-gradient(140deg, rgba(20,14,32,.88), rgba(10,7,20,.92)),
+        url('photos/bg.jpg') center/cover no-repeat;
+      transform:scale(1.05);
+      filter:blur(2px) saturate(1.08) brightness(.6);
+    }
+    #galaxy-canvas{position:fixed;inset:0;z-index:1;width:100%;height:100%;display:block;touch-action:none}
+    .attribution{position:fixed;left:10px;bottom:10px;font-size:11px;color:#b9a0ff;opacity:.8;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px}
+    .player{position:fixed;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;
+             background:rgba(20,15,35,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px;
+             backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
+    .player button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff}
+    .player input[type=file]{display:none}
+    .pill{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;
+          background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
+    .error{position:fixed;inset:auto 10px 70px 10px;background:#260015;color:#ffd9f7;border:1px solid #ff8ae5;border-radius:10px;padding:10px;font:12px system-ui;display:none;}
+        #fx{position:fixed;inset:0;pointer-events:none;z-index:2;}
+        .pill,.attribution,.player,.error,#tapMessage{z-index:3}
+  </style>
+  <!-- Three.js legacy non-module build + OrbitControls (r128, super estable) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+<div id="photo-bg" aria-hidden="true"></div>
+<canvas id="galaxy-canvas"></canvas>
+<div class="pill">4.16生日快乐，我会一直偏爱你 💖</div>
+<div class="attribution">416朵四叶草 + 324朵樱花 + 我们的照片正围绕黑洞旋转</div>
+<div id="err" class="error"></div>
+
+<!-- 💖 Mensaje para iPhone -->
+<div id="tapMessage" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+color:white;font-size:22px;font-family:sans-serif;
+background:rgba(0,0,0,0.5);padding:20px 30px;border-radius:20px;
+text-align:center;z-index:999;">
+轻触屏幕，星河和音乐就会为你亮起 ✨
+</div>
+
+<div class="player">
+  <button id="playBtn">▶︎ 播放</button>
+  <span style="font-size:12px;opacity:.9">生日BGM</span>
+  <input type="file" id="pickFile" accept="audio/*">
+  <button id="pickBtn">更换歌曲</button>
+  <audio id="audio" preload="none">
+    <source src="como_no_amarla.mp3" type="audio/mpeg">
+  </audio>
+</div>
+
+<canvas id="fx"></canvas>
+
+<script>
+(function(){
+const err = document.getElementById('err');
+function showError(msg){ err.textContent = msg; err.style.display='block'; }
+
+// ====== AUDIO ======
+const audio = document.getElementById('audio');
+const playBtn = document.getElementById('playBtn');
+const pickBtn = document.getElementById('pickBtn');
+const pickFile = document.getElementById('pickFile');
+
+// ====== PHOTO SOURCES ======
+const photoList = [
+  'photos/1.jpg',
+  'photos/2.jpg',
+  'photos/3.jpg',
+  'photos/4.jpg',
+  'photos/5.jpg',
+  'photos/6.jpg'
+];
+
+// 🔥 Reproducir automáticamente al primer toque (funciona en iPhone)
+document.body.addEventListener("click", function() {
+  if (audio.paused) {
+    audio.play().then(() => {
+      playBtn.textContent = '⏸︎ 暂停';
+    }).catch(() => {});
+  }
+
+  const msg = document.getElementById("tapMessage");
+  if (msg) msg.style.display = "none";
+
+}, { once: true });
+
+playBtn.onclick = async () => {
+  try { if (audio.paused) { await audio.play(); playBtn.textContent='⏸︎ 暂停'; } else { audio.pause(); playBtn.textContent='▶︎ 播放'; } }
+  catch(e){ showError('如果音乐没有播放，请点“更换歌曲”选择你的MP3。'); }
+};
+pickBtn.onclick = () => pickFile.click();
+pickFile.onchange = () => {
+  if (pickFile.files && pickFile.files[0]) {
+    const url = URL.createObjectURL(pickFile.files[0]);
+    audio.src = url; audio.play().then(()=> playBtn.textContent='⏸︎ 暂停').catch(()=>{});
+  }
+};
+
+// ====== WEBGL CHECK ======
+try { 
+  const test = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
+  if(!test) throw new Error('Tu navegador no tiene WebGL activo');
+} catch(e) { showError('你的浏览器似乎没有开启WebGL，请换Chrome/Edge/Firefox或打开硬件加速。'); return; }
+
+// ====== THREE.JS GALAXY ======
+try {
+// Setup
+const canvas = document.getElementById('galaxy-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.minDistance = 10; controls.maxDistance = 220;
+controls.target.set(0,0,0);
+
+// Camera default
+function setCam(){
+  const w = window.innerWidth, h = window.innerHeight;
+  const isMobile = w < 768 || w < h;
+  camera.fov = isMobile ? 90 : 75;
+  camera.position.set(0, isMobile? 26 : 22, isMobile? 110 : 75);
+  camera.updateProjectionMatrix(); controls.update();
+} setCam();
+
+// ---------- Prettier starfield texture (soft glow + variety) ----------
+function makePrettyStarTexture(size=1024, count=2000) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  // subtle nebula backdrop (very dark purple radial)
+  const r = size/2;
+  const bg = g.createRadialGradient(r,r, r*0.2, r,r, r);
+  bg.addColorStop(0,'#050010');
+  bg.addColorStop(1,'#000000');
+  g.fillStyle = bg; g.fillRect(0,0,size,size);
+
+  for (let i=0;i<count;i++) {
+    const x = Math.random()*size, y = Math.random()*size;
+    const base = Math.random()*0.7 + 0.3; // brightness
+    const glow = g.createRadialGradient(x,y,0, x,y, Math.random()*2.2+1.6);
+    // color tilt towards lilac/blue
+    const huePick = Math.random();
+    let colInner = 'rgba(255,255,255,'+(0.65*base)+')';
+    let colOuter = 'rgba(180,190,255,'+(0.12*base)+')';
+    if (huePick < 0.25) { colOuter = 'rgba(255,180,240,'+(0.12*base)+')'; }
+    glow.addColorStop(0, colInner);
+    glow.addColorStop(1, colOuter);
+    g.fillStyle = glow; g.beginPath(); g.arc(x,y, Math.random()*1.2+0.6, 0, Math.PI*2); g.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+const bgGeo = new THREE.SphereGeometry(600, 64, 64);
+const starTex = makePrettyStarTexture(1024, 2600);
+starTex.wrapS = starTex.wrapT = THREE.RepeatWrapping;
+const bg = new THREE.Mesh(bgGeo, new THREE.MeshBasicMaterial({ map: starTex, side: THREE.BackSide, transparent:false, opacity:0.85 }));
+scene.add(bg);
+
+// Galaxy
+const galaxy = new THREE.Group(); scene.add(galaxy);
+const phrases = ["生日快乐", "我最喜欢你", "416快乐", "我的小宇宙", "你是我的光", "我会一直陪你", "你笑起来真好看", "见你就心动", "今天也超级爱你", "想把银河送给你", "你是我的唯一", "想和你有很多个春天", "你的名字最好听", "想把偏爱都给你", "你是我的小幸运", "你让我觉得世界很可爱", "和你在一起就是礼物", "今天你是全宇宙主角", "你永远值得被爱", "比昨天更爱你一点", "生日许愿我负责实现", "你的每一天都要发光", "你是我最坚定的选择", "我的心动长期有效", "在星河里继续爱你"];
+const phraseCount = Math.max(phrases.length * 6, 180);
+const arms = 5, radius = 82, maxH = 22;
+
+function makeTextTexture(text, size=48){
+  const c=document.createElement('canvas'); c.width=1024; c.height=128;
+  const g=c.getContext('2d'); g.clearRect(0,0,c.width,c.height);
+  g.font='800 '+size+'px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial';
+  g.textAlign='center'; g.textBaseline='middle';
+  g.shadowColor='rgba(210,140,255,0.95)'; g.shadowBlur=24;
+  g.fillStyle='rgba(255,240,255,0.98)'; g.fillText(text,c.width/2,c.height/2);
+  return new THREE.CanvasTexture(c);
+}
+
+for(let i=0;i<phraseCount;i++){ const text = phrases[i%phrases.length];
+  const tex=makeTextTexture(text,48);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false }));
+  spr.isPhrase=true;
+  const perArm=phraseCount/arms; const ang=(i%perArm)*(Math.PI*2/perArm);
+  const armAng=Math.floor(i/perArm)*(Math.PI*2/arms);
+  const dist=Math.pow(i/phraseCount,0.72)*radius;
+  const thickness=Math.pow(1-(dist/radius),2);
+  const x=Math.cos(ang+armAng)*dist, z=Math.sin(ang+armAng)*dist, y=(Math.random()-0.5)*maxH*thickness*.9;
+  spr.position.set(x,y,z); spr.scale.set(20,2.6,1); galaxy.add(spr);
+}
+
+// Galaxy stars (keep subtle)
+const starCount=8000, geom=new THREE.BufferGeometry(), pos=new Float32Array(starCount*3);
+for(let i=0;i<starCount;i++){ const ang=Math.random()*Math.PI*2, dist=Math.random()*radius*1.15;
+  const y=(Math.random()-0.5)*36*Math.pow(1-Math.min(dist,radius)/radius,1.5);
+  pos[i*3]=Math.cos(ang)*dist; pos[i*3+1]=y; pos[i*3+2]=Math.sin(ang)*dist; }
+geom.setAttribute('position', new THREE.BufferAttribute(pos,3));
+galaxy.add(new THREE.Points(geom, new THREE.PointsMaterial({ color:0xffffff, size:0.28, transparent:true, opacity:0.65, blending:THREE.AdditiveBlending })));
+
+// Black hole (3D core + ring + extended brighter halo)
+const coreR=12;
+const coreTexCanvas=document.createElement('canvas'); coreTexCanvas.width=coreTexCanvas.height=256;
+const cg=coreTexCanvas.getContext('2d'); const grd=cg.createRadialGradient(128,128,10,128,128,128);
+grd.addColorStop(0,'#140018'); grd.addColorStop(0.6,'#090012'); grd.addColorStop(1,'#000'); cg.fillStyle=grd; cg.arc(128,128,128,0,Math.PI*2); cg.fill();
+const core=new THREE.Mesh(new THREE.SphereGeometry(coreR,64,64), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(coreTexCanvas) }));
+core.renderOrder=1; scene.add(core);
+
+const photonRing=new THREE.Mesh(new THREE.RingGeometry(coreR*1.05, coreR*1.18, 128), new THREE.MeshBasicMaterial({ color:0xEAAEFF, transparent:true, opacity:0.95, side:THREE.DoubleSide }));
+photonRing.rotation.x=-Math.PI/2; photonRing.renderOrder=0.5; scene.add(photonRing);
+
+function makeHaloTexture(size=1024, inner=0.45){
+  const c=document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d'); const r=size/2;
+  const grd=g.createRadialGradient(r,r,r*inner, r,r,r);
+  // brighter, clearer colors
+  grd.addColorStop(0.0,'rgba(255,200,240,0.45)');
+  grd.addColorStop(0.35,'rgba(220,180,255,0.35)');
+  grd.addColorStop(0.7,'rgba(160,200,255,0.28)');
+  grd.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=grd; g.fillRect(0,0,size,size); const tex=new THREE.CanvasTexture(c); tex.needsUpdate=true; return tex;
+}
+const haloPlane=new THREE.Mesh(new THREE.PlaneGeometry(320,320), new THREE.MeshBasicMaterial({ map:makeHaloTexture(1024,0.45), transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:0.9 }));
+haloPlane.rotation.x=-Math.PI/2; haloPlane.renderOrder=0.2; scene.add(haloPlane);
+
+// 3D photo orbit around the black hole
+const photoOrbit = new THREE.Group();
+photoOrbit.rotation.x = -0.2;
+scene.add(photoOrbit);
+const orbitCards = [];
+const textureLoader = new THREE.TextureLoader();
+let photoLoadErrorShown = false;
+
+function makePlaceholderPhotoTexture(label){
+  const c = document.createElement('canvas');
+  c.width = 360; c.height = 480;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0,0,360,480);
+  grad.addColorStop(0, '#ffd7e8');
+  grad.addColorStop(1, '#c8e2ff');
+  g.fillStyle = grad;
+  g.fillRect(0,0,c.width,c.height);
+  g.fillStyle = 'rgba(255,255,255,0.55)';
+  g.fillRect(20,20,320,440);
+  g.fillStyle = '#5a3e62';
+  g.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('MEMORY', c.width/2, c.height/2 - 16);
+  g.font = '600 22px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial';
+  g.fillText(label, c.width/2, c.height/2 + 22);
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
+}
+
+photoList.forEach((src, i) => {
+  const resolvedSrc = new URL(src, window.location.href).href;
+  const count = Math.max(photoList.length, 1);
+  const fixedOrbitRadius = 26;
+  const fixedOrbitSpeed = 0.26;
+  const cardW = 8;
+  const cardH = 11;
+  const frame = new THREE.Mesh(
+    new THREE.PlaneGeometry(cardW * 1.1, cardH * 1.1),
+    new THREE.MeshBasicMaterial({ color: 0xfff6fb, transparent: true, opacity: 0.96, side: THREE.DoubleSide, depthWrite: false })
+  );
+  const cardMat = new THREE.MeshBasicMaterial({
+    map: makePlaceholderPhotoTexture('NO.' + (i+1)),
+    transparent: true,
+    opacity: 0.98,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(cardW, cardH), cardMat);
+  const wrap = new THREE.Group();
+  wrap.add(frame);
+  wrap.add(card);
+  card.position.z = 0.03;
+  wrap.userData = {
+    radius: fixedOrbitRadius,
+    speed: fixedOrbitSpeed,
+    phase: (i / count) * Math.PI * 2,
+    lift: 0,
+    wobble: 0,
+    tilt: 0
+  };
+  orbitCards.push(wrap);
+  photoOrbit.add(wrap);
+
+  textureLoader.load(resolvedSrc, (tex) => {
+    tex.encoding = THREE.sRGBEncoding;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    cardMat.map = tex;
+    cardMat.needsUpdate = true;
+  }, undefined, () => {
+    if(!photoLoadErrorShown){
+      photoLoadErrorShown = true;
+      const tip = window.location.protocol === 'file:'
+        ? '图片加载失败：你正在用 file:// 直接打开页面，请改用本地HTTP服务运行。'
+        : '图片加载失败：请检查 photos 文件名大小写与路径是否一致。';
+      showError(tip);
+    }
+    console.error('Photo load failed:', resolvedSrc);
+  });
+});
+
+// Subtle twinkle (animate bg texture offset)
+let tw = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  const t = performance.now()*0.001;
+  tw = (tw + 0.0003) % 1;
+  starTex.offset.set(tw, 0); // tiny drift
+  galaxy.rotation.y = t * 0.05;
+  core.rotation.y = t * 0.12;
+  photonRing.rotation.z = t * 0.18;
+  haloPlane.rotation.z = t * 0.02;
+  for(let i=0;i<orbitCards.length;i++){
+    const p = orbitCards[i];
+    const d = p.userData;
+    const a = d.phase + t * d.speed;
+    p.position.set(
+      Math.cos(a) * d.radius,
+      d.lift + Math.sin(t * 0.7 + d.phase) * d.wobble,
+      Math.sin(a) * d.radius
+    );
+    p.lookAt(camera.position);
+    p.rotation.z = d.tilt;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+} animate();
+
+// ====== HEARTS OVERLAY (double tap/click) ======
+const fx = document.getElementById('fx');
+const ctx2 = fx.getContext('2d');
+function resizeFx(){
+  fx.width = Math.floor(innerWidth * Math.min(2, window.devicePixelRatio||1));
+  fx.height = Math.floor(innerHeight * Math.min(2, window.devicePixelRatio||1));
+  fx.style.width = innerWidth + 'px';
+  fx.style.height = innerHeight + 'px';
+}
+addEventListener('resize', resizeFx); resizeFx();
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+const hearts = [];
+const clovers = [];
+const sakuras = [];
+const cloverCount = 416;
+const sakuraCount = 324;
+
+function rand(min, max){ return min + Math.random() * (max - min); }
+
+function initNatureParticles(){
+  clovers.length = 0;
+  sakuras.length = 0;
+  const cx = fx.width * 0.5;
+  const cy = fx.height * 0.5;
+  const spreadX = fx.width * 0.56;
+  const spreadY = fx.height * 0.56;
+  for(let i=0;i<cloverCount;i++){
+    clovers.push({
+      cx,
+      cy,
+      ox: rand(-spreadX, spreadX),
+      oy: rand(-spreadY, spreadY),
+      size: rand(8, 17),
+      drift: rand(0, Math.PI * 2),
+      wobble: rand(2, 10),
+      alpha: rand(0.45, 0.82)
+    });
+  }
+  for(let i=0;i<sakuraCount;i++){
+    sakuras.push({
+      cx,
+      cy,
+      ox: rand(-spreadX, spreadX),
+      oy: rand(-spreadY, spreadY),
+      size: rand(6, 14),
+      rot: rand(0, Math.PI * 2),
+      vr: rand(-0.03, 0.03),
+      wobble: rand(2, 12),
+      alpha: rand(0.35, 0.82)
+    });
+  }
+}
+initNatureParticles();
+
+addEventListener('resize', initNatureParticles);
+
+function spawnHearts(x,y,n=20){
+  x *= DPR; y *= DPR;
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2;
+    hearts.push({x,y,vx:Math.cos(a)*(0.6+Math.random()*0.8),vy:-(0.8+Math.random()*1.2),life:1,size:10+Math.random()*16});
+  }
+}
+function drawHeart(x,y,size){
+  const s=size; ctx2.save(); ctx2.translate(x,y);
+  ctx2.beginPath(); ctx2.moveTo(0,-0.25*s);
+  ctx2.bezierCurveTo(.5*s,-.9*s,1.4*s,-.1*s,0,.9*s);
+  ctx2.bezierCurveTo(-1.4*s,-.1*s,-.5*s,-.9*s,0,-.25*s);
+  const g=ctx2.createRadialGradient(0,0,0,0,0,s);
+  g.addColorStop(0,'rgba(255,190,220,.95)'); g.addColorStop(1,'rgba(255,90,160,0)');
+  ctx2.fillStyle=g; ctx2.fill(); ctx2.restore();
+}
+
+function makeCloverSprite(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const g = c.getContext('2d');
+  const cx = 48, cy = 46, r = 15;
+
+  g.shadowColor = 'rgba(120,255,160,.25)';
+  g.shadowBlur = 10;
+  const grad = g.createRadialGradient(cx - 4, cy - 6, 3, cx, cy, 26);
+  grad.addColorStop(0, '#f3fff0');
+  grad.addColorStop(0.45, '#b7f3aa');
+  grad.addColorStop(1, '#6abd73');
+  g.fillStyle = grad;
+
+  function leaf(dx, dy, rot){
+    g.save();
+    g.translate(cx + dx, cy + dy);
+    g.rotate(rot);
+    g.beginPath();
+    g.moveTo(0, -r);
+    g.bezierCurveTo(r * 0.9, -r, r * 1.1, r * 0.25, 0, r * 1.1);
+    g.bezierCurveTo(-r * 1.1, r * 0.25, -r * 0.9, -r, 0, -r);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  leaf(0, -10, 0);
+  leaf(10, 0, Math.PI / 2);
+  leaf(0, 10, Math.PI);
+  leaf(-10, 0, -Math.PI / 2);
+
+  g.shadowBlur = 0;
+  g.strokeStyle = 'rgba(75,150,90,.9)';
+  g.lineWidth = 4;
+  g.beginPath();
+  g.moveTo(cx + 1, cy + 15);
+  g.quadraticCurveTo(cx + 10, cy + 28, cx + 22, cy + 42);
+  g.stroke();
+
+  return c;
+}
+
+function makeSakuraSprite(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const g = c.getContext('2d');
+  const cx = 48, cy = 48, outer = 24, inner = 10;
+
+  g.shadowColor = 'rgba(255,170,210,.26)';
+  g.shadowBlur = 10;
+  const grad = g.createRadialGradient(cx - 5, cy - 5, 3, cx, cy, 28);
+  grad.addColorStop(0, '#fff8fb');
+  grad.addColorStop(0.5, '#ffd6e8');
+  grad.addColorStop(1, '#ff9cc2');
+  g.fillStyle = grad;
+
+  for(let i=0;i<5;i++){
+    const a = i * (Math.PI * 2 / 5) - Math.PI / 2;
+    const nx = Math.cos(a) * outer;
+    const ny = Math.sin(a) * outer;
+    const lx = Math.cos(a - 0.42) * inner;
+    const ly = Math.sin(a - 0.42) * inner;
+    const rx = Math.cos(a + 0.42) * inner;
+    const ry = Math.sin(a + 0.42) * inner;
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.quadraticCurveTo(cx + lx, cy + ly, cx + nx, cy + ny);
+    g.quadraticCurveTo(cx + rx, cy + ry, cx, cy);
+    g.closePath();
+    g.fill();
+  }
+
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(255,120,178,.88)';
+  g.beginPath();
+  g.arc(cx, cy, 7, 0, Math.PI * 2);
+  g.fill();
+
+  return c;
+}
+
+const cloverSprite = makeCloverSprite();
+const sakuraSprite = makeSakuraSprite();
+
+function drawClover(x,y,size,alpha){
+  ctx2.save();
+  ctx2.translate(x,y);
+  ctx2.globalAlpha = alpha;
+  const s = size * 2.2;
+  ctx2.drawImage(cloverSprite, -s * 0.5, -s * 0.5, s, s);
+  ctx2.restore();
+}
+
+function drawSakura(x,y,size,rot,alpha){
+  ctx2.save();
+  ctx2.translate(x,y);
+  ctx2.rotate(rot);
+  ctx2.globalAlpha = alpha;
+  const s = size * 2.6;
+  ctx2.drawImage(sakuraSprite, -s * 0.5, -s * 0.5, s, s);
+  ctx2.restore();
+}
+
+let lastTap=0;
+addEventListener('click', (e)=>{ const now=performance.now(); if(now-lastTap<320) spawnHearts(e.clientX,e.clientY,20); lastTap=now; }, {passive:true});
+addEventListener('touchend', (e)=>{ const now=performance.now(); const t=e.changedTouches&&e.changedTouches[0]; if(now-lastTap<320&&t) spawnHearts(t.clientX,t.clientY,20); lastTap=now; }, {passive:true});
+
+function loopFx(){
+  ctx2.clearRect(0,0,fx.width,fx.height);
+  const t = performance.now() * 0.001;
+  // Match the 3D galaxy's global rotation direction and speed.
+  const theta = t * 0.05;
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+
+  for(let i=0;i<clovers.length;i++){
+    const c = clovers[i];
+    const wob = Math.sin(t + c.drift) * c.wobble;
+    const ox = c.ox + wob * 0.4;
+    const oy = c.oy + wob * 0.6;
+    const x = c.cx + ox * cosT - oy * sinT;
+    const y = c.cy + ox * sinT + oy * cosT;
+    drawClover(x, y, c.size, c.alpha);
+  }
+
+  for(let i=0;i<sakuras.length;i++){
+    const s = sakuras[i];
+    const wob = Math.sin(t * 0.8 + s.rot) * s.wobble;
+    const ox = s.ox + wob * 0.5;
+    const oy = s.oy + wob * 0.7;
+    const x = s.cx + ox * cosT - oy * sinT;
+    const y = s.cy + ox * sinT + oy * cosT;
+    s.rot += s.vr;
+    drawSakura(x, y, s.size, s.rot, s.alpha);
+  }
+
+  for(let i=hearts.length-1;i>=0;i--){ const h=hearts[i]; h.x+=h.vx; h.y+=h.vy; h.vy-=0.02; h.life-=0.015;
+    ctx2.globalAlpha=Math.max(0,h.life); drawHeart(h.x,h.y,h.size); ctx2.globalAlpha=1; if(h.life<=0) hearts.splice(i,1);
+  }
+  requestAnimationFrame(loopFx);
+} loopFx();
+
+} catch(e) { showError('银河加载失败：'+e.message); console.error(e); }
+})();
+</script>
+</body>
+</html>

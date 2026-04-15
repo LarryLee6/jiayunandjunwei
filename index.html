@@ -22,16 +22,11 @@
     }
     #galaxy-canvas{position:fixed;inset:0;z-index:1;width:100%;height:100%;display:block;touch-action:none}
     .attribution{position:fixed;left:10px;bottom:10px;font-size:11px;color:#b9a0ff;opacity:.8;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px}
-    .player{position:fixed;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;
-             background:rgba(20,15,35,.35);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px;
-             backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
-    .player button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff}
-    .player input[type=file]{display:none}
     .pill{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;
           background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial}
     .error{position:fixed;inset:auto 10px 70px 10px;background:#260015;color:#ffd9f7;border:1px solid #ff8ae5;border-radius:10px;padding:10px;font:12px system-ui;display:none;}
         #fx{position:fixed;inset:0;pointer-events:none;z-index:2;}
-        .pill,.attribution,.player,.error,#tapMessage{z-index:3}
+      .pill,.attribution,.error{z-index:3}
   </style>
   <!-- Three.js legacy non-module build + OrbitControls (r128, super estable) -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -41,26 +36,11 @@
 <div id="photo-bg" aria-hidden="true"></div>
 <canvas id="galaxy-canvas"></canvas>
 <div class="pill">4.16生日快乐，我会一直偏爱你 💖</div>
-<div class="attribution">416朵四叶草 + 324朵樱花 + 我们的照片正围绕黑洞旋转</div>
+<div class="attribution">416朵四叶草+324朵樱花+把我所有的喜欢都送给你</div>
 <div id="err" class="error"></div>
-
-<!-- 💖 Mensaje para iPhone -->
-<div id="tapMessage" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-color:white;font-size:22px;font-family:sans-serif;
-background:rgba(0,0,0,0.5);padding:20px 30px;border-radius:20px;
-text-align:center;z-index:999;">
-轻触屏幕，星河和音乐就会为你亮起 ✨
-</div>
-
-<div class="player">
-  <button id="playBtn">▶︎ 播放</button>
-  <span style="font-size:12px;opacity:.9">生日BGM</span>
-  <input type="file" id="pickFile" accept="audio/*">
-  <button id="pickBtn">更换歌曲</button>
-  <audio id="audio" preload="none">
-    <source src="como_no_amarla.mp3" type="audio/mpeg">
-  </audio>
-</div>
+<audio id="audio" preload="none" style="display:none">
+  <source src="como_no_amarla.mp3" type="audio/mpeg">
+</audio>
 
 <canvas id="fx"></canvas>
 
@@ -71,9 +51,6 @@ function showError(msg){ err.textContent = msg; err.style.display='block'; }
 
 // ====== AUDIO ======
 const audio = document.getElementById('audio');
-const playBtn = document.getElementById('playBtn');
-const pickBtn = document.getElementById('pickBtn');
-const pickFile = document.getElementById('pickFile');
 
 // ====== PHOTO SOURCES ======
 const photoList = [
@@ -87,28 +64,11 @@ const photoList = [
 
 // 🔥 Reproducir automáticamente al primer toque (funciona en iPhone)
 document.body.addEventListener("click", function() {
-  if (audio.paused) {
-    audio.play().then(() => {
-      playBtn.textContent = '⏸︎ 暂停';
-    }).catch(() => {});
+  if (audio && audio.paused) {
+    audio.play().catch(() => {});
   }
-
-  const msg = document.getElementById("tapMessage");
-  if (msg) msg.style.display = "none";
 
 }, { once: true });
-
-playBtn.onclick = async () => {
-  try { if (audio.paused) { await audio.play(); playBtn.textContent='⏸︎ 暂停'; } else { audio.pause(); playBtn.textContent='▶︎ 播放'; } }
-  catch(e){ showError('如果音乐没有播放，请点“更换歌曲”选择你的MP3。'); }
-};
-pickBtn.onclick = () => pickFile.click();
-pickFile.onchange = () => {
-  if (pickFile.files && pickFile.files[0]) {
-    const url = URL.createObjectURL(pickFile.files[0]);
-    audio.src = url; audio.play().then(()=> playBtn.textContent='⏸︎ 暂停').catch(()=>{});
-  }
-};
 
 // ====== WEBGL CHECK ======
 try { 

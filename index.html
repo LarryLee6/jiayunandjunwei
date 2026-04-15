@@ -170,6 +170,118 @@ for(let i=0;i<starCount;i++){ const ang=Math.random()*Math.PI*2, dist=Math.rando
 geom.setAttribute('position', new THREE.BufferAttribute(pos,3));
 galaxy.add(new THREE.Points(geom, new THREE.PointsMaterial({ color:0xffffff, size:0.28, transparent:true, opacity:0.65, blending:THREE.AdditiveBlending })));
 
+// 3D clover + sakura cloud (same rotation behavior as galaxy particles)
+function makeCloverCanvasTexture(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const g = c.getContext('2d');
+  const cx = 48, cy = 46, r = 15;
+
+  g.shadowColor = 'rgba(120,255,160,.25)';
+  g.shadowBlur = 10;
+  const grad = g.createRadialGradient(cx - 4, cy - 6, 3, cx, cy, 26);
+  grad.addColorStop(0, '#f3fff0');
+  grad.addColorStop(0.45, '#b7f3aa');
+  grad.addColorStop(1, '#6abd73');
+  g.fillStyle = grad;
+
+  function leaf(dx, dy, rot){
+    g.save();
+    g.translate(cx + dx, cy + dy);
+    g.rotate(rot);
+    g.beginPath();
+    g.moveTo(0, -r);
+    g.bezierCurveTo(r * 0.9, -r, r * 1.1, r * 0.25, 0, r * 1.1);
+    g.bezierCurveTo(-r * 1.1, r * 0.25, -r * 0.9, -r, 0, -r);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  leaf(0, -10, 0);
+  leaf(10, 0, Math.PI / 2);
+  leaf(0, 10, Math.PI);
+  leaf(-10, 0, -Math.PI / 2);
+
+  g.shadowBlur = 0;
+  g.strokeStyle = 'rgba(75,150,90,.9)';
+  g.lineWidth = 4;
+  g.beginPath();
+  g.moveTo(cx + 1, cy + 15);
+  g.quadraticCurveTo(cx + 10, cy + 28, cx + 22, cy + 42);
+  g.stroke();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
+}
+
+function makeSakuraCanvasTexture(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const g = c.getContext('2d');
+  const cx = 48, cy = 48, outer = 24, inner = 10;
+
+  g.shadowColor = 'rgba(255,170,210,.26)';
+  g.shadowBlur = 10;
+  const grad = g.createRadialGradient(cx - 5, cy - 5, 3, cx, cy, 28);
+  grad.addColorStop(0, '#fff8fb');
+  grad.addColorStop(0.5, '#ffd6e8');
+  grad.addColorStop(1, '#ff9cc2');
+  g.fillStyle = grad;
+
+  for(let i=0;i<5;i++){
+    const a = i * (Math.PI * 2 / 5) - Math.PI / 2;
+    const nx = Math.cos(a) * outer;
+    const ny = Math.sin(a) * outer;
+    const lx = Math.cos(a - 0.42) * inner;
+    const ly = Math.sin(a - 0.42) * inner;
+    const rx = Math.cos(a + 0.42) * inner;
+    const ry = Math.sin(a + 0.42) * inner;
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.quadraticCurveTo(cx + lx, cy + ly, cx + nx, cy + ny);
+    g.quadraticCurveTo(cx + rx, cy + ry, cx, cy);
+    g.closePath();
+    g.fill();
+  }
+
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(255,120,178,.88)';
+  g.beginPath();
+  g.arc(cx, cy, 7, 0, Math.PI * 2);
+  g.fill();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
+}
+
+const cloverCount = 416;
+const sakuraCount = 324;
+const cloverMat = new THREE.SpriteMaterial({ map: makeCloverCanvasTexture(), transparent: true, depthWrite: false, opacity: 0.95 });
+const sakuraMat = new THREE.SpriteMaterial({ map: makeSakuraCanvasTexture(), transparent: true, depthWrite: false, opacity: 0.93 });
+for(let i=0;i<cloverCount;i++){
+  const s = new THREE.Sprite(cloverMat);
+  const ang = Math.random() * Math.PI * 2;
+  const dist = Math.random() * radius * 1.1;
+  const y = (Math.random() - 0.5) * 34 * Math.pow(1 - Math.min(dist, radius) / radius, 1.25);
+  s.position.set(Math.cos(ang) * dist, y, Math.sin(ang) * dist);
+  const sz = 1.0 + Math.random() * 1.6;
+  s.scale.set(sz, sz, 1);
+  galaxy.add(s);
+}
+for(let i=0;i<sakuraCount;i++){
+  const s = new THREE.Sprite(sakuraMat);
+  const ang = Math.random() * Math.PI * 2;
+  const dist = Math.random() * radius * 1.22;
+  const y = (Math.random() - 0.5) * 36 * Math.pow(1 - Math.min(dist, radius) / radius, 1.15);
+  s.position.set(Math.cos(ang) * dist, y, Math.sin(ang) * dist);
+  const sz = 0.95 + Math.random() * 1.55;
+  s.scale.set(sz, sz, 1);
+  galaxy.add(s);
+}
+
 // Black hole (3D core + ring + extended brighter halo)
 const coreR=12;
 const coreTexCanvas=document.createElement('canvas'); coreTexCanvas.width=coreTexCanvas.height=256;
@@ -315,49 +427,8 @@ function resizeFx(){
 addEventListener('resize', resizeFx); resizeFx();
 const DPR = Math.min(2, window.devicePixelRatio || 1);
 const hearts = [];
-const clovers = [];
-const sakuras = [];
-const cloverCount = 416;
-const sakuraCount = 324;
 
 function rand(min, max){ return min + Math.random() * (max - min); }
-
-function initNatureParticles(){
-  clovers.length = 0;
-  sakuras.length = 0;
-  const cx = fx.width * 0.5;
-  const cy = fx.height * 0.5;
-  const spreadX = fx.width * 0.56;
-  const spreadY = fx.height * 0.56;
-  for(let i=0;i<cloverCount;i++){
-    clovers.push({
-      cx,
-      cy,
-      ox: rand(-spreadX, spreadX),
-      oy: rand(-spreadY, spreadY),
-      size: rand(8, 17),
-      drift: rand(0, Math.PI * 2),
-      wobble: rand(2, 10),
-      alpha: rand(0.45, 0.82)
-    });
-  }
-  for(let i=0;i<sakuraCount;i++){
-    sakuras.push({
-      cx,
-      cy,
-      ox: rand(-spreadX, spreadX),
-      oy: rand(-spreadY, spreadY),
-      size: rand(6, 14),
-      rot: rand(0, Math.PI * 2),
-      vr: rand(-0.03, 0.03),
-      wobble: rand(2, 12),
-      alpha: rand(0.35, 0.82)
-    });
-  }
-}
-initNatureParticles();
-
-addEventListener('resize', initNatureParticles);
 
 function spawnHearts(x,y,n=20){
   x *= DPR; y *= DPR;
@@ -375,109 +446,6 @@ function drawHeart(x,y,size){
   ctx2.fillStyle=g; ctx2.fill(); ctx2.restore();
 }
 
-function makeCloverSprite(){
-  const c = document.createElement('canvas');
-  c.width = c.height = 96;
-  const g = c.getContext('2d');
-  const cx = 48, cy = 46, r = 15;
-
-  g.shadowColor = 'rgba(120,255,160,.25)';
-  g.shadowBlur = 10;
-  const grad = g.createRadialGradient(cx - 4, cy - 6, 3, cx, cy, 26);
-  grad.addColorStop(0, '#f3fff0');
-  grad.addColorStop(0.45, '#b7f3aa');
-  grad.addColorStop(1, '#6abd73');
-  g.fillStyle = grad;
-
-  function leaf(dx, dy, rot){
-    g.save();
-    g.translate(cx + dx, cy + dy);
-    g.rotate(rot);
-    g.beginPath();
-    g.moveTo(0, -r);
-    g.bezierCurveTo(r * 0.9, -r, r * 1.1, r * 0.25, 0, r * 1.1);
-    g.bezierCurveTo(-r * 1.1, r * 0.25, -r * 0.9, -r, 0, -r);
-    g.closePath();
-    g.fill();
-    g.restore();
-  }
-
-  leaf(0, -10, 0);
-  leaf(10, 0, Math.PI / 2);
-  leaf(0, 10, Math.PI);
-  leaf(-10, 0, -Math.PI / 2);
-
-  g.shadowBlur = 0;
-  g.strokeStyle = 'rgba(75,150,90,.9)';
-  g.lineWidth = 4;
-  g.beginPath();
-  g.moveTo(cx + 1, cy + 15);
-  g.quadraticCurveTo(cx + 10, cy + 28, cx + 22, cy + 42);
-  g.stroke();
-
-  return c;
-}
-
-function makeSakuraSprite(){
-  const c = document.createElement('canvas');
-  c.width = c.height = 96;
-  const g = c.getContext('2d');
-  const cx = 48, cy = 48, outer = 24, inner = 10;
-
-  g.shadowColor = 'rgba(255,170,210,.26)';
-  g.shadowBlur = 10;
-  const grad = g.createRadialGradient(cx - 5, cy - 5, 3, cx, cy, 28);
-  grad.addColorStop(0, '#fff8fb');
-  grad.addColorStop(0.5, '#ffd6e8');
-  grad.addColorStop(1, '#ff9cc2');
-  g.fillStyle = grad;
-
-  for(let i=0;i<5;i++){
-    const a = i * (Math.PI * 2 / 5) - Math.PI / 2;
-    const nx = Math.cos(a) * outer;
-    const ny = Math.sin(a) * outer;
-    const lx = Math.cos(a - 0.42) * inner;
-    const ly = Math.sin(a - 0.42) * inner;
-    const rx = Math.cos(a + 0.42) * inner;
-    const ry = Math.sin(a + 0.42) * inner;
-    g.beginPath();
-    g.moveTo(cx, cy);
-    g.quadraticCurveTo(cx + lx, cy + ly, cx + nx, cy + ny);
-    g.quadraticCurveTo(cx + rx, cy + ry, cx, cy);
-    g.closePath();
-    g.fill();
-  }
-
-  g.shadowBlur = 0;
-  g.fillStyle = 'rgba(255,120,178,.88)';
-  g.beginPath();
-  g.arc(cx, cy, 7, 0, Math.PI * 2);
-  g.fill();
-
-  return c;
-}
-
-const cloverSprite = makeCloverSprite();
-const sakuraSprite = makeSakuraSprite();
-
-function drawClover(x,y,size,alpha){
-  ctx2.save();
-  ctx2.translate(x,y);
-  ctx2.globalAlpha = alpha;
-  const s = size * 2.2;
-  ctx2.drawImage(cloverSprite, -s * 0.5, -s * 0.5, s, s);
-  ctx2.restore();
-}
-
-function drawSakura(x,y,size,rot,alpha){
-  ctx2.save();
-  ctx2.translate(x,y);
-  ctx2.rotate(rot);
-  ctx2.globalAlpha = alpha;
-  const s = size * 2.6;
-  ctx2.drawImage(sakuraSprite, -s * 0.5, -s * 0.5, s, s);
-  ctx2.restore();
-}
 
 let lastTap=0;
 addEventListener('click', (e)=>{ const now=performance.now(); if(now-lastTap<320) spawnHearts(e.clientX,e.clientY,20); lastTap=now; }, {passive:true});
@@ -485,32 +453,6 @@ addEventListener('touchend', (e)=>{ const now=performance.now(); const t=e.chang
 
 function loopFx(){
   ctx2.clearRect(0,0,fx.width,fx.height);
-  const t = performance.now() * 0.001;
-  // Match the 3D galaxy's global rotation direction and speed.
-  const theta = t * 0.05;
-  const cosT = Math.cos(theta);
-  const sinT = Math.sin(theta);
-
-  for(let i=0;i<clovers.length;i++){
-    const c = clovers[i];
-    const wob = Math.sin(t + c.drift) * c.wobble;
-    const ox = c.ox + wob * 0.4;
-    const oy = c.oy + wob * 0.6;
-    const x = c.cx + ox * cosT - oy * sinT;
-    const y = c.cy + ox * sinT + oy * cosT;
-    drawClover(x, y, c.size, c.alpha);
-  }
-
-  for(let i=0;i<sakuras.length;i++){
-    const s = sakuras[i];
-    const wob = Math.sin(t * 0.8 + s.rot) * s.wobble;
-    const ox = s.ox + wob * 0.5;
-    const oy = s.oy + wob * 0.7;
-    const x = s.cx + ox * cosT - oy * sinT;
-    const y = s.cy + ox * sinT + oy * cosT;
-    s.rot += s.vr;
-    drawSakura(x, y, s.size, s.rot, s.alpha);
-  }
 
   for(let i=hearts.length-1;i>=0;i--){ const h=hearts[i]; h.x+=h.vx; h.y+=h.vy; h.vy-=0.02; h.life-=0.015;
     ctx2.globalAlpha=Math.max(0,h.life); drawHeart(h.x,h.y,h.size); ctx2.globalAlpha=1; if(h.life<=0) hearts.splice(i,1);
